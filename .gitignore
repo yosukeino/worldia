@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+
+# Python
+__pycache__/
+*.pyc
+
+# Large raw data & OCR checkpoints
+datam/*.pdf
+datam/*.jsonl
+datam/temp_*
+datam/ocr_*
+
+# Environment variables
+.env*.local
+.env
+
+
