@@ -107,6 +107,7 @@ export interface CitySaveState {
   recentTermIds: number[];
   masteredQaIds: number[];
   reviewQaIds: number[];
+  qaAnswerViewCounts?: Record<number, number>;
   customBuildingPositions: Record<string, { x: number; y: number }>;
   chirperFeed: ChirperPost[];
   timeOfDay: 'day' | 'sunset' | 'night';

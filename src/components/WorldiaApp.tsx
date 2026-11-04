@@ -73,6 +73,20 @@ export default function WorldiaApp({
     [saveState.reviewQaIds]
   );
 
+  function handleRevealAnswer(qaId: number) {
+    setSaveState((prev) => {
+      const prevCounts = prev.qaAnswerViewCounts || {};
+      const nextCount = (prevCounts[qaId] || 0) + 1;
+      return {
+        ...prev,
+        qaAnswerViewCounts: {
+          ...prevCounts,
+          [qaId]: nextCount,
+        },
+      };
+    });
+  }
+
   function handleRecordQuizResult(
     qaId: number,
     isCorrect: boolean,
@@ -211,7 +225,9 @@ export default function WorldiaApp({
             readTermIds={readTermIdsSet}
             masteredQaIds={masteredQaIdsSet}
             reviewQaIds={reviewQaIdsSet}
+            qaAnswerViewCounts={saveState.qaAnswerViewCounts || {}}
             initialMode={initialQuizMode}
+            onRevealAnswer={handleRevealAnswer}
             onRecordResult={handleRecordQuizResult}
             onJumpToTermInDB={handleSelectTerm}
             onNavigate={(view) => setActiveTab(view)}

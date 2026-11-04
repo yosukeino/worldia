@@ -31,6 +31,7 @@ export const DEFAULT_SAVE_STATE: CitySaveState = {
   recentTermIds: [8],
   masteredQaIds: [],
   reviewQaIds: [],
+  qaAnswerViewCounts: {},
   customBuildingPositions: {},
   chirperFeed: DEFAULT_CHIRPER,
   timeOfDay: 'day',

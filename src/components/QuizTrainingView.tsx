@@ -35,7 +35,9 @@ interface QuizTrainingViewProps {
   readTermIds: Set<number>;
   masteredQaIds: Set<number>;
   reviewQaIds: Set<number>;
+  qaAnswerViewCounts: Record<number, number>;
   initialMode?: QuizMode;
+  onRevealAnswer: (qaId: number) => void;
   onRecordResult: (qaId: number, isCorrect: boolean, matchedTermId: number | null) => void;
   onJumpToTermInDB: (termId: number) => void;
   onNavigate: (view: 'home' | 'db' | 'city' | 'haptics') => void;
@@ -56,7 +58,9 @@ export default function QuizTrainingView({
   readTermIds,
   masteredQaIds,
   reviewQaIds,
+  qaAnswerViewCounts,
   initialMode = 'flashcard',
+  onRevealAnswer,
   onRecordResult,
   onJumpToTermInDB,
   onNavigate,
@@ -287,6 +291,7 @@ export default function QuizTrainingView({
       if (mode === 'flashcard') {
         if ((e.code === 'Space' || e.code === 'Enter') && !isRevealed) {
           e.preventDefault();
+          onRevealAnswer(currentItem.id);
           setIsRevealed(true);
         } else if (isRevealed) {
           if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') {
@@ -369,6 +374,7 @@ export default function QuizTrainingView({
           onClick={() => {
             if (!isRevealed) {
               triggerSavedHaptic();
+              onRevealAnswer(currentItem.id);
               setIsRevealed(true);
             } else {
               handleFlashcardKeepInRotation();
@@ -431,34 +437,20 @@ export default function QuizTrainingView({
                 </svg>
               </div>
 
-              {/* Top Bar inside Card: Chapter/Section + Question Counter + Unobtrusive Menu Button */}
-              <div className="relative z-10 flex items-start justify-between gap-2 border-b border-slate-800/90 pb-3">
-                <div className="space-y-1.5 min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-bold truncate max-w-[220px] sm:max-w-none">
-                      {currentItem.chapter}
+              {/* Top Bar inside Card: Chapter + Star Rating + Answer View Count (when revealed) + Menu Button */}
+              <div className="relative z-10 flex items-center justify-between gap-2 border-b border-slate-800/90 pb-3">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <span className="px-2.5 py-0.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-bold truncate max-w-[230px] sm:max-w-none">
+                    {currentItem.chapter}
+                  </span>
+                  <span className="text-amber-300 text-xs font-bold tabular-nums">
+                    ★{Math.min(5, Math.max(1, Math.round((currentItem.frequency || 3) / 2)))}
+                  </span>
+                  {isRevealed && (
+                    <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-xs font-extrabold tabular-nums">
+                      答え閲覧 {qaAnswerViewCounts[currentItem.id] || 1}回目
                     </span>
-                    {currentItem.section && (
-                      <span className="px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-medium truncate max-w-[150px] sm:max-w-none">
-                        {currentItem.section}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 font-bold tabular-nums">
-                    <span>
-                      問題 {currentIndex + 1} / {deck.length.toLocaleString()}
-                    </span>
-                    <span className="text-slate-600">•</span>
-                    <span className="text-amber-300">
-                      ★{Math.min(5, Math.max(1, Math.round((currentItem.frequency || 3) / 2)))}
-                    </span>
-                    {reviewQaIds.has(currentItem.id) && (
-                      <span className="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">
-                        復習中
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Unobtrusive Video-Game Menu / Pause Button */}
@@ -483,19 +475,19 @@ export default function QuizTrainingView({
                     {currentItem.question}
                   </p>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-800/60 text-xs text-cyan-300/80">
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-800/60">
                     {currentIndex > 0 ? (
                       <button
                         type="button"
                         onClick={handlePrevQuestion}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-bold transition"
+                        className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 text-xs font-medium transition"
                       >
                         ← 前の問題
                       </button>
                     ) : (
                       <span />
                     )}
-                    <span className="font-bold tracking-wider animate-pulse">
+                    <span className="text-[11px] font-normal text-slate-500">
                       カードをタップして答えと解説を表示
                     </span>
                   </div>
@@ -507,9 +499,11 @@ export default function QuizTrainingView({
                   <div className="bg-emerald-950/35 border border-emerald-500/40 rounded-2xl p-4 sm:p-5">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-400 block mb-0.5">
-                          正解（ANSWER）
-                        </span>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-400">
+                            正解（ANSWER）
+                          </span>
+                        </div>
                         <div className="text-2xl sm:text-3xl font-black text-white tracking-wide">
                           {currentItem.answer}
                         </div>
@@ -537,18 +531,13 @@ export default function QuizTrainingView({
                   </div>
 
                   {/* Prominent Glossary Explanation ("いきなり用語解説をドーンと前に出す") */}
-                  <div className="bg-slate-950/85 border border-cyan-500/30 rounded-2xl p-4 sm:p-6 space-y-2.5 shadow-inner">
+                  <div className="bg-slate-950/85 border border-cyan-500/30 rounded-2xl p-4 sm:p-6 space-y-2 shadow-inner">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs sm:text-sm font-extrabold text-cyan-400 flex items-center gap-1.5">
-                        <BookOpen className="w-4 h-4" />
+                      <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
+                        <BookOpen className="w-3 h-3 text-slate-500" />
                         <span>
                           用語解説：{matchedTerm ? matchedTerm.term : currentItem.answer}
                         </span>
-                        {matchedTerm?.era && (
-                          <span className="text-amber-300/90 font-normal text-xs">
-                            （{matchedTerm.era}）
-                          </span>
-                        )}
                       </span>
                     </div>
 
@@ -574,9 +563,9 @@ export default function QuizTrainingView({
                     {currentItem.question}
                   </div>
 
-                  {/* Bottom Bar: Corner Button "もうこの問題を表示しない" + Tap Card Hint */}
+                  {/* Bottom Bar: Unobtrusive Tap Card Hint + Corner Button "もうこの問題を表示しない" */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
-                    <span className="text-xs font-bold text-emerald-300/90">
+                    <span className="text-[11px] font-normal text-slate-500">
                       カードをタップして次の問題へ →
                     </span>
 
@@ -600,37 +589,20 @@ export default function QuizTrainingView({
            MODE B: 4-CHOICE QUIZ (4択遠征)
            ========================================================= */
         <div className="bg-slate-900/95 border border-cyan-500/25 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4">
-          <div className="flex items-start justify-between gap-2 border-b border-slate-800/90 pb-3">
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="px-2.5 py-0.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-bold truncate max-w-[230px] sm:max-w-none">
-                  {currentItem.chapter}
+          <div className="flex items-center justify-between gap-2 border-b border-slate-800/90 pb-3">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <span className="px-2.5 py-0.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-bold truncate max-w-[230px] sm:max-w-none">
+                {currentItem.chapter}
+              </span>
+              <span className="text-amber-300 text-xs font-bold tabular-nums">
+                ★{Math.min(5, Math.max(1, Math.round((currentItem.frequency || 3) / 2)))}
+              </span>
+              {streak > 0 && (
+                <span className="text-amber-400 text-xs font-bold inline-flex items-center gap-0.5">
+                  <Flame className="w-3.5 h-3.5" />
+                  {streak}連続
                 </span>
-                {currentItem.section && (
-                  <span className="px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-medium truncate max-w-[160px] sm:max-w-none">
-                    {currentItem.section}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 font-bold tabular-nums">
-                <span>
-                  問題 {currentIndex + 1} / {deck.length.toLocaleString()}
-                </span>
-                <span className="text-slate-600">•</span>
-                <span className="text-amber-300">
-                  ★{Math.min(5, Math.max(1, Math.round((currentItem.frequency || 3) / 2)))}
-                </span>
-                {streak > 0 && (
-                  <>
-                    <span className="text-slate-600">•</span>
-                    <span className="text-amber-400 inline-flex items-center gap-0.5">
-                      <Flame className="w-3.5 h-3.5" />
-                      {streak}連続
-                    </span>
-                  </>
-                )}
-              </div>
+              )}
             </div>
 
             <button
@@ -734,14 +706,9 @@ export default function QuizTrainingView({
             {selectedChoice !== null && matchedTerm && (
               <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5" />
+                  <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
+                    <BookOpen className="w-3 h-3 text-slate-500" />
                     <span>用語解説：{matchedTerm.term}</span>
-                    {matchedTerm.era && (
-                      <span className="text-amber-300/90 font-normal">
-                        （{matchedTerm.era}）
-                      </span>
-                    )}
                   </span>
                 </div>
                 <div className="text-xs sm:text-sm text-slate-200 leading-relaxed">
