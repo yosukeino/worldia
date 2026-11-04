@@ -116,7 +116,7 @@ export default function HapticsLabView({ onBack }: HapticsLabViewProps) {
     } else {
       const preset =
         HAPTIC_PRESETS.find((p) => p.id === settings.selectedPresetId) ||
-        HAPTIC_PRESETS[2];
+        HAPTIC_PRESETS[1];
       triggerHapticPreset(preset, {
         enableIosSwitch: settings.useIosSwitchHaptic,
         enableAudioTactile: settings.useAudioTactile,
@@ -440,7 +440,7 @@ export default function HapticsLabView({ onBack }: HapticsLabViewProps) {
             />
 
             <div className="flex flex-wrap gap-2">
-              {[3, 6, 10, 14, 18, 25, 35, 50, 80, 120].map((ms) => (
+              {[1, 3, 6, 10, 14, 18, 25, 35, 50, 80, 120].map((ms) => (
                 <label
                   key={ms}
                   onClick={() => handleTestCustomMs(ms)}

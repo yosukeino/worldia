@@ -29,9 +29,22 @@ export const HAPTIC_PRESETS: HapticPreset[] = [
     vibratePattern: 0,
   },
   {
+    id: 'micro_1',
+    name: '★ 標準・極小クリック（1ms）',
+    subtitle: '最小単位（1ms）の極短パルス。連続タップでも最も心地よいデフォルト設定',
+    category: 'light',
+    vibratePattern: 1,
+    audioPulse: {
+      freqStart: 160,
+      freqEnd: 60,
+      durationMs: 4,
+      gain: 0.2,
+    },
+  },
+  {
     id: 'micro_5',
     name: '① 極短マイクロ（5ms）',
-    subtitle: '指先に「コツッ」とだけ伝わる最小限の極短パルス',
+    subtitle: '指先に「コツッ」とだけ伝わる極短パルス',
     category: 'light',
     vibratePattern: 5,
     audioPulse: {
@@ -146,7 +159,7 @@ export const HAPTIC_PRESETS: HapticPreset[] = [
   },
 ];
 
-const HAPTIC_STORAGE_KEY = 'worldia_haptic_settings_v1';
+const HAPTIC_STORAGE_KEY = 'worldia_haptic_settings_v2';
 
 export interface HapticSettings {
   selectedPresetId: string;
@@ -156,10 +169,10 @@ export interface HapticSettings {
 }
 
 export const DEFAULT_HAPTIC_SETTINGS: HapticSettings = {
-  selectedPresetId: 'crisp_10',
+  selectedPresetId: 'micro_1',
   useIosSwitchHaptic: true,
   useAudioTactile: false,
-  customDurationMs: 15,
+  customDurationMs: 1,
 };
 
 export function loadHapticSettings(): HapticSettings {
@@ -325,7 +338,7 @@ export function triggerSavedHaptic(): void {
     return;
   }
   const preset =
-    HAPTIC_PRESETS.find((p) => p.id === settings.selectedPresetId) || HAPTIC_PRESETS[2];
+    HAPTIC_PRESETS.find((p) => p.id === settings.selectedPresetId) || HAPTIC_PRESETS[1];
   triggerHapticPreset(preset, {
     enableIosSwitch: settings.useIosSwitchHaptic,
     enableAudioTactile: settings.useAudioTactile,
