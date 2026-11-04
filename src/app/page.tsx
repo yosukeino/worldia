@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import ChronopolisApp from '@/components/ChronopolisApp';
+import WorldiaApp from '@/components/WorldiaApp';
 import { Chapter, EnrichedTerm, QAItem } from '@/types/history';
 
 export default function HomePage() {
@@ -16,7 +16,7 @@ export default function HomePage() {
   const qaItems = JSON.parse(qaRaw) as QAItem[];
 
   return (
-    <ChronopolisApp
+    <WorldiaApp
       chapters={parsed.chapters}
       terms={parsed.terms}
       qaItems={qaItems}

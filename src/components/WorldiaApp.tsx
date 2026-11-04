@@ -8,22 +8,24 @@ import {
   saveCityState,
 } from '@/lib/storage';
 import CityStatusHeader from './CityStatusHeader';
+import TopMenuView from './TopMenuView';
 import WorldHistoryDBView from './WorldHistoryDBView';
-import QuizTrainingView from './QuizTrainingView';
+import QuizTrainingView, { QuizMode } from './QuizTrainingView';
 import IsometricCityView from './IsometricCityView';
 
-interface ChronopolisAppProps {
+interface WorldiaAppProps {
   chapters: Chapter[];
   terms: EnrichedTerm[];
   qaItems: QAItem[];
 }
 
-export default function ChronopolisApp({
+export default function WorldiaApp({
   chapters,
   terms,
   qaItems,
-}: ChronopolisAppProps) {
-  const [activeTab, setActiveTab] = useState<'db' | 'quiz' | 'city'>('db');
+}: WorldiaAppProps) {
+  const [activeTab, setActiveTab] = useState<'home' | 'db' | 'quiz' | 'city'>('home');
+  const [initialQuizMode, setInitialQuizMode] = useState<QuizMode>('flashcard');
   const [selectedTermId, setSelectedTermId] = useState<number>(12);
   const [saveState, setSaveState] = useState<CitySaveState>(DEFAULT_SAVE_STATE);
   const [hydrated, setHydrated] = useState(false);
@@ -152,16 +154,37 @@ export default function ChronopolisApp({
     }));
   }
 
-  return (
-    <div className="min-h-screen bg-[#070f1e] text-slate-100 flex flex-col">
-      <CityStatusHeader
+  if (activeTab === 'home') {
+    return (
+      <TopMenuView
         cityName={saveState.cityName}
-        activeTab={activeTab}
-        onChangeTab={setActiveTab}
         readTermIds={readTermIdsSet}
         masteredQaCount={masteredQaIdsSet.size}
+        reviewQaCount={reviewQaIdsSet.size}
+        totalQaCount={qaItems.length}
         termsById={termsById}
+        onSelectView={(view, quizMode) => {
+          if (quizMode) {
+            setInitialQuizMode(quizMode);
+          }
+          setActiveTab(view);
+        }}
       />
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#070f1e] text-slate-100 flex flex-col">
+      {activeTab !== 'quiz' && (
+        <CityStatusHeader
+          cityName={saveState.cityName}
+          activeTab={activeTab}
+          onChangeTab={setActiveTab}
+          readTermIds={readTermIdsSet}
+          masteredQaCount={masteredQaIdsSet.size}
+          termsById={termsById}
+        />
+      )}
 
       <div className="max-w-7xl w-full mx-auto px-3 sm:px-4 py-3 sm:py-5 flex-1">
         {activeTab === 'db' ? (
@@ -183,8 +206,10 @@ export default function ChronopolisApp({
             readTermIds={readTermIdsSet}
             masteredQaIds={masteredQaIdsSet}
             reviewQaIds={reviewQaIdsSet}
+            initialMode={initialQuizMode}
             onRecordResult={handleRecordQuizResult}
             onJumpToTermInDB={handleSelectTerm}
+            onNavigate={(view) => setActiveTab(view)}
           />
         ) : (
           <IsometricCityView

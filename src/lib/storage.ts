@@ -24,7 +24,7 @@ const DEFAULT_CHIRPER: ChirperPost[] = [
 ];
 
 export const DEFAULT_SAVE_STATE: CitySaveState = {
-  cityName: 'クロノポリス（歴史都市）',
+  cityName: 'Worldia（歴史都市）',
   // Start with 2 iconic starter terms unlocked so the initial diorama has its first monument & citizens
   readTermIds: [8],
   bookmarkedTermIds: [],

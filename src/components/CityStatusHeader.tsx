@@ -10,7 +10,8 @@ import {
 import {
   BookOpen,
   Building2,
-  Swords,
+  Compass,
+  Home,
   Users,
   Sparkles,
   FlaskConical,
@@ -19,8 +20,8 @@ import {
 
 interface CityStatusHeaderProps {
   cityName: string;
-  activeTab: 'db' | 'quiz' | 'city';
-  onChangeTab: (tab: 'db' | 'quiz' | 'city') => void;
+  activeTab: 'home' | 'db' | 'quiz' | 'city';
+  onChangeTab: (tab: 'home' | 'db' | 'quiz' | 'city') => void;
   readTermIds: Set<number>;
   masteredQaCount: number;
   termsById: Map<number, EnrichedTerm>;
@@ -185,6 +186,17 @@ export default function CityStatusHeader({
         {/* Compact Switcher Tabs */}
         <div className="flex items-center bg-slate-900 p-0.5 rounded-xl border border-cyan-500/30 ml-auto">
           <button
+            onClick={() => onChangeTab('home')}
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition"
+            title="トップメニューに戻る"
+          >
+            <Home className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">メニュー</span>
+          </button>
+
+          <div className="h-3.5 w-px bg-slate-800 mx-0.5" />
+
+          <button
             onClick={() => onChangeTab('db')}
             className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition ${
               activeTab === 'db'
@@ -204,8 +216,8 @@ export default function CityStatusHeader({
                 : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Swords className="w-3.5 h-3.5" />
-            <span>一問一答・4択</span>
+            <Compass className="w-3.5 h-3.5" />
+            <span>エクスペディション</span>
           </button>
 
           <button
