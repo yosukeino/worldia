@@ -27,3 +27,112 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(56, 189, 248, 0.65);
 }
+
+/* Multi-layered slowly flowing wave border animations for interactive flashcard */
+@keyframes waveFlowPrimary {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes waveFlowSecondary {
+  0% {
+    background-position: 100% 0%;
+  }
+  50% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 100% 0%;
+  }
+}
+
+@keyframes waveDriftSlow {
+  0% {
+    transform: translateX(0%);
+  }
+  50% {
+    transform: translateX(-25%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+@keyframes waveDriftReverse {
+  0% {
+    transform: translateX(-25%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-25%);
+  }
+}
+
+.wave-card-outer {
+  background: linear-gradient(
+    115deg,
+    rgba(34, 211, 238, 0.75),
+    rgba(16, 185, 129, 0.25),
+    rgba(59, 130, 246, 0.7),
+    rgba(20, 184, 166, 0.3),
+    rgba(34, 211, 238, 0.75)
+  );
+  background-size: 300% 300%;
+  animation: waveFlowPrimary 9s ease-in-out infinite;
+}
+
+.wave-card-middle {
+  background: linear-gradient(
+    245deg,
+    rgba(16, 185, 129, 0.65),
+    rgba(14, 165, 233, 0.2),
+    rgba(56, 189, 248, 0.65),
+    rgba(99, 102, 241, 0.25),
+    rgba(16, 185, 129, 0.65)
+  );
+  background-size: 280% 280%;
+  animation: waveFlowSecondary 13s ease-in-out infinite;
+}
+
+.wave-card-outer-revealed {
+  background: linear-gradient(
+    115deg,
+    rgba(16, 185, 129, 0.8),
+    rgba(34, 211, 238, 0.3),
+    rgba(245, 158, 11, 0.55),
+    rgba(20, 184, 166, 0.75),
+    rgba(16, 185, 129, 0.8)
+  );
+  background-size: 300% 300%;
+  animation: waveFlowPrimary 10s ease-in-out infinite;
+}
+
+.wave-card-middle-revealed {
+  background: linear-gradient(
+    245deg,
+    rgba(52, 211, 153, 0.65),
+    rgba(56, 189, 248, 0.25),
+    rgba(16, 185, 129, 0.7),
+    rgba(251, 191, 36, 0.25),
+    rgba(52, 211, 153, 0.65)
+  );
+  background-size: 280% 280%;
+  animation: waveFlowSecondary 14s ease-in-out infinite;
+}
+
+.wave-svg-slow {
+  animation: waveDriftSlow 11s ease-in-out infinite;
+}
+
+.wave-svg-reverse {
+  animation: waveDriftReverse 15s ease-in-out infinite;
+}

@@ -44,7 +44,10 @@ export default function LinkedDescription({
         >
           <button
             type="button"
-            onClick={() => onSelectTerm(span.termId)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectTerm(span.termId);
+            }}
             className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 mx-0.5 rounded-md font-semibold transition border text-[15px] leading-snug ${
               isRead
                 ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/80'
