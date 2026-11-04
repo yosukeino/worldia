@@ -37,6 +37,7 @@ interface QuizTrainingViewProps {
   reviewQaIds: Set<number>;
   qaAnswerViewCounts: Record<number, number>;
   initialMode?: QuizMode;
+  advanceTrigger?: number;
   onRevealAnswer: (qaId: number) => void;
   onRecordResult: (qaId: number, isCorrect: boolean, matchedTermId: number | null) => void;
   onJumpToTermInDB: (termId: number) => void;
@@ -60,6 +61,7 @@ export default function QuizTrainingView({
   reviewQaIds,
   qaAnswerViewCounts,
   initialMode = 'flashcard',
+  advanceTrigger = 0,
   onRevealAnswer,
   onRecordResult,
   onJumpToTermInDB,
@@ -210,6 +212,18 @@ export default function QuizTrainingView({
       setCurrentIndex(0);
     }
   }
+
+  // Advance to the next question when returning from World History DB via "問題に戻る"
+  useEffect(() => {
+    if (advanceTrigger > 0) {
+      if (mode === 'flashcard' && currentItem) {
+        setSessionTotal((prev) => prev + 1);
+        onRecordResult(currentItem.id, false, currentItem.matched_term_id);
+      }
+      advanceToNextCard();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advanceTrigger]);
 
   // Flashcard Tap on Revealed Card Body -> Same as "不正解・あいまい" & immediately go to next question
   function handleFlashcardKeepInRotation() {

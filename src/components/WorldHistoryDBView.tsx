@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Chapter, EnrichedTerm } from '@/types/history';
 import { fetchWikipediaResource, WikiResource } from '@/lib/wikipedia';
 import { HISTORICAL_BUILDINGS } from '@/config/city-elements';
+import { triggerSavedHaptic } from '@/lib/haptics';
 import LinkedDescription from './LinkedDescription';
 import {
   Search,
@@ -19,6 +20,13 @@ import {
   ChevronRight,
   Image as ImageIcon,
   X,
+  Menu,
+  Home,
+  Compass,
+  Building2,
+  BookOpen,
+  ArrowRight,
+  Vibrate,
 } from 'lucide-react';
 
 interface WorldHistoryDBViewProps {
@@ -31,6 +39,9 @@ interface WorldHistoryDBViewProps {
   bookmarkedTermIds: Set<number>;
   recentTermIds: number[];
   onToggleBookmark: (termId: number) => void;
+  canReturnToQuiz?: boolean;
+  onReturnToQuizNext?: () => void;
+  onNavigate?: (view: 'home' | 'quiz' | 'city' | 'haptics') => void;
 }
 
 export default function WorldHistoryDBView({
@@ -43,6 +54,9 @@ export default function WorldHistoryDBView({
   bookmarkedTermIds,
   recentTermIds,
   onToggleBookmark,
+  canReturnToQuiz = false,
+  onReturnToQuizNext,
+  onNavigate,
 }: WorldHistoryDBViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChapterId, setSelectedChapterId] = useState<string>('all');
@@ -51,6 +65,7 @@ export default function WorldHistoryDBView({
     'all' | 'landmarks' | 'unread' | 'read' | 'bookmarks'
   >('all');
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const [wikiData, setWikiData] = useState<WikiResource | null>(null);
   const [wikiLoading, setWikiLoading] = useState<boolean>(false);
@@ -301,30 +316,54 @@ export default function WorldHistoryDBView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
       {/* Main Article Column: Order-1 on Mobile so Term Explanation Card is ALWAYS in the First View! */}
-      <main className="order-1 lg:order-2 lg:col-span-8 flex flex-col gap-4">
-        {/* Compact Mobile Search Bar & Random Button */}
+      <main className="order-1 lg:order-2 lg:col-span-8 flex flex-col gap-3.5">
+        {/* Prominent Return-to-Quiz (Next Question) Button when accessed from Answer Card */}
+        {canReturnToQuiz && onReturnToQuizNext && (
+          <button
+            type="button"
+            onClick={() => {
+              triggerSavedHaptic();
+              onReturnToQuizNext();
+            }}
+            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-950 font-black text-sm sm:text-base shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition active:scale-[0.99] cursor-pointer"
+          >
+            <Compass className="w-5 h-5" />
+            <span>問題に戻る（次の問題へ進む）</span>
+            <ArrowRight className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Compact Mobile Search Bar, Random Button & Unobtrusive Menu Button */}
         <div className="flex lg:hidden items-center gap-2">
           <button
             onClick={() => setMobileSearchOpen(true)}
-            className="flex-1 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-xs text-slate-300 text-left"
+            className="flex-1 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-xs text-slate-300 text-left min-w-0"
           >
             <Search className="w-4 h-4 text-cyan-400 shrink-0" />
             <span className="truncate">
-              用語を検索・時代一覧から探す（5,577語）...
+              用語を検索・時代一覧から探す...
             </span>
           </button>
           <button
             onClick={handleRandomJump}
-            className="px-3 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1 shrink-0"
+            className="px-2.5 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1 shrink-0"
           >
             <Shuffle className="w-3.5 h-3.5" />
             <span>おまかせ</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(true)}
+            className="px-2.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+            title="メニュー"
+          >
+            <Menu className="w-4 h-4" />
           </button>
         </div>
 
         {/* Main Term Article Card (First View!) */}
         <article className="rounded-2xl border border-cyan-500/35 bg-slate-900/95 backdrop-blur-md p-4 sm:p-7 shadow-2xl flex flex-col gap-4">
-          {/* Top Header: Badges, Title, Bookmark Icon */}
+          {/* Top Header: Badges, Title, Bookmark Icon & Desktop Menu Button */}
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -362,22 +401,35 @@ export default function WorldHistoryDBView({
               )}
             </div>
 
-            {/* Clean Bookmark Icon Button */}
-            <button
-              onClick={() => onToggleBookmark(currentTerm.id)}
-              className={`p-2 rounded-xl border transition shrink-0 ${
-                isCurrentBookmarked
-                  ? 'bg-amber-500/20 border-amber-400 text-amber-300'
-                  : 'bg-slate-950 border-slate-700 text-slate-400 hover:text-white'
-              }`}
-              title="ブックマークに保存"
-            >
-              <Bookmark
-                className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                  isCurrentBookmarked ? 'fill-amber-400' : ''
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Clean Bookmark Icon Button */}
+              <button
+                onClick={() => onToggleBookmark(currentTerm.id)}
+                className={`p-2 rounded-xl border transition ${
+                  isCurrentBookmarked
+                    ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+                    : 'bg-slate-950 border-slate-700 text-slate-400 hover:text-white'
                 }`}
-              />
-            </button>
+                title="ブックマークに保存"
+              >
+                <Bookmark
+                  className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                    isCurrentBookmarked ? 'fill-amber-400' : ''
+                  }`}
+                />
+              </button>
+
+              {/* Desktop Unobtrusive Menu Button */}
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen(true)}
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                title="メニュー"
+              >
+                <Menu className="w-4 h-4" />
+                <span>メニュー</span>
+              </button>
+            </div>
           </div>
 
           {/* Main Term Description directly below title (No noisy sub-labels!) */}
@@ -389,6 +441,22 @@ export default function WorldHistoryDBView({
               onSelectTerm={handleChooseTerm}
             />
           </div>
+
+          {/* Secondary Prominent Return-to-Quiz Button right under Description */}
+          {canReturnToQuiz && onReturnToQuizNext && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerSavedHaptic();
+                onReturnToQuizNext();
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer"
+            >
+              <Compass className="w-4 h-4 text-emerald-400" />
+              <span>問題に戻る（次の問題へ進む）</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
 
           {/* Wikipedia & Wikimedia Commons Live Resource Integration */}
           {(wikiLoading || wikiData) && (
@@ -617,6 +685,101 @@ export default function WorldHistoryDBView({
               </button>
             </div>
             {searchDirectoryContent}
+          </div>
+        </div>
+      )}
+
+      {/* Video-Game Style Menu Modal for World History DB */}
+      {isMenuOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-cyan-500/30 rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-base font-black text-white">
+                  世界史DB（アーカイブメニュー）
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsMenuOpen(false)}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {canReturnToQuiz && onReturnToQuizNext && (
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    triggerSavedHaptic();
+                    onReturnToQuizNext();
+                  }}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-950 font-extrabold text-sm shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Compass className="w-4 h-4" />
+                  <span>問題に戻る（次の問題へ進む）</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setIsMenuOpen(false)}
+                className="w-full py-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-200 font-extrabold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>このまま世界史DBを読む</span>
+              </button>
+
+              {onNavigate && (
+                <>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onNavigate('quiz');
+                      }}
+                      className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Compass className="w-3.5 h-3.5" />
+                      <span>エクスペディション</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onNavigate('city');
+                      }}
+                      className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>マイ歴史都市</span>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onNavigate('haptics');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-purple-950/50 hover:bg-purple-900/50 border border-purple-500/40 text-purple-200 font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Vibrate className="w-4 h-4 text-purple-400" />
+                    <span>スマホ振動（ハプティクス）実験ラボ</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onNavigate('home');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Home className="w-4 h-4 text-slate-400" />
+                    <span>トップメニューに戻る</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

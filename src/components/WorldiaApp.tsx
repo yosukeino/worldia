@@ -28,6 +28,8 @@ export default function WorldiaApp({
   const [activeTab, setActiveTab] = useState<'home' | 'db' | 'quiz' | 'city' | 'haptics'>('home');
   const [initialQuizMode, setInitialQuizMode] = useState<QuizMode>('flashcard');
   const [selectedTermId, setSelectedTermId] = useState<number>(12);
+  const [cameFromQuiz, setCameFromQuiz] = useState<boolean>(false);
+  const [advanceQuizTrigger, setAdvanceQuizTrigger] = useState<number>(0);
   const [saveState, setSaveState] = useState<CitySaveState>(DEFAULT_SAVE_STATE);
   const [hydrated, setHydrated] = useState(false);
 
@@ -169,6 +171,22 @@ export default function WorldiaApp({
     }));
   }
 
+  function handleJumpToTermFromQuiz(termId: number) {
+    setCameFromQuiz(true);
+    handleSelectTerm(termId);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  function handleReturnToQuizNext() {
+    setAdvanceQuizTrigger((prev) => prev + 1);
+    setActiveTab('quiz');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
   if (activeTab === 'home') {
     return (
       <TopMenuView
@@ -182,6 +200,9 @@ export default function WorldiaApp({
           if (quizMode) {
             setInitialQuizMode(quizMode);
           }
+          if (view === 'db') {
+            setCameFromQuiz(false);
+          }
           setActiveTab(view);
         }}
       />
@@ -194,11 +215,14 @@ export default function WorldiaApp({
 
   return (
     <div className="min-h-screen bg-[#070f1e] text-slate-100 flex flex-col">
-      {activeTab !== 'quiz' && (
+      {activeTab === 'city' && (
         <CityStatusHeader
           cityName={saveState.cityName}
           activeTab={activeTab}
-          onChangeTab={setActiveTab}
+          onChangeTab={(tab) => {
+            if (tab === 'db') setCameFromQuiz(false);
+            setActiveTab(tab);
+          }}
           readTermIds={readTermIdsSet}
           masteredQaCount={masteredQaIdsSet.size}
           termsById={termsById}
@@ -206,7 +230,7 @@ export default function WorldiaApp({
       )}
 
       <div className="max-w-7xl w-full mx-auto px-3 sm:px-4 py-3 sm:py-5 flex-1">
-        {activeTab === 'db' ? (
+        {activeTab === 'db' && (
           <WorldHistoryDBView
             chapters={chapters}
             allTerms={terms}
@@ -217,8 +241,15 @@ export default function WorldiaApp({
             bookmarkedTermIds={bookmarkedIdsSet}
             recentTermIds={saveState.recentTermIds}
             onToggleBookmark={handleToggleBookmark}
+            canReturnToQuiz={cameFromQuiz}
+            onReturnToQuizNext={handleReturnToQuizNext}
+            onNavigate={(view) => {
+              setActiveTab(view);
+            }}
           />
-        ) : activeTab === 'quiz' ? (
+        )}
+
+        <div className={activeTab === 'quiz' ? 'block' : 'hidden'}>
           <QuizTrainingView
             qaItems={qaItems}
             termsById={termsById}
@@ -227,12 +258,18 @@ export default function WorldiaApp({
             reviewQaIds={reviewQaIdsSet}
             qaAnswerViewCounts={saveState.qaAnswerViewCounts || {}}
             initialMode={initialQuizMode}
+            advanceTrigger={advanceQuizTrigger}
             onRevealAnswer={handleRevealAnswer}
             onRecordResult={handleRecordQuizResult}
-            onJumpToTermInDB={handleSelectTerm}
-            onNavigate={(view) => setActiveTab(view)}
+            onJumpToTermInDB={handleJumpToTermFromQuiz}
+            onNavigate={(view) => {
+              if (view === 'db') setCameFromQuiz(false);
+              setActiveTab(view);
+            }}
           />
-        ) : (
+        </div>
+
+        {activeTab === 'city' && (
           <IsometricCityView
             cityName={saveState.cityName}
             onChangeCityName={(name) =>
@@ -247,7 +284,10 @@ export default function WorldiaApp({
             onChangeTimeOfDay={(timeOfDay) =>
               setSaveState((prev) => ({ ...prev, timeOfDay }))
             }
-            onSelectTerm={handleSelectTerm}
+            onSelectTerm={(termId) => {
+              setCameFromQuiz(false);
+              handleSelectTerm(termId);
+            }}
           />
         )}
       </div>
