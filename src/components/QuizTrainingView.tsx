@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { QAItem, EnrichedTerm } from '@/types/history';
+import { triggerSavedHaptic } from '@/lib/haptics';
 import LinkedDescription from './LinkedDescription';
 import {
   Layers,
@@ -22,6 +23,7 @@ import {
   Play,
   Compass,
   EyeOff,
+  Vibrate,
 } from 'lucide-react';
 
 export type QuizMode = 'flashcard' | 'multiple_choice';
@@ -36,7 +38,7 @@ interface QuizTrainingViewProps {
   initialMode?: QuizMode;
   onRecordResult: (qaId: number, isCorrect: boolean, matchedTermId: number | null) => void;
   onJumpToTermInDB: (termId: number) => void;
-  onNavigate: (view: 'home' | 'db' | 'city') => void;
+  onNavigate: (view: 'home' | 'db' | 'city' | 'haptics') => void;
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -208,6 +210,7 @@ export default function QuizTrainingView({
   // Flashcard Tap on Revealed Card Body -> Same as "不正解・あいまい" & immediately go to next question
   function handleFlashcardKeepInRotation() {
     if (!currentItem) return;
+    triggerSavedHaptic();
     setSessionTotal((prev) => prev + 1);
     setStreak(0);
     onRecordResult(currentItem.id, false, currentItem.matched_term_id);
@@ -218,6 +221,7 @@ export default function QuizTrainingView({
   function handleFlashcardHideForever(e: React.MouseEvent) {
     e.stopPropagation();
     if (!currentItem) return;
+    triggerSavedHaptic();
     const targetId = currentItem.id;
     setSessionTotal((prev) => prev + 1);
     setSessionCorrect((prev) => prev + 1);
@@ -242,6 +246,7 @@ export default function QuizTrainingView({
 
   function handleSelectChoice(choice: string) {
     if (!currentItem || selectedChoice !== null) return;
+    triggerSavedHaptic();
     setSelectedChoice(choice);
     const isCorrect = choice === currentItem.answer;
     setSessionTotal((prev) => prev + 1);
@@ -308,6 +313,20 @@ export default function QuizTrainingView({
 
   return (
     <div className="max-w-3xl mx-auto pt-1 pb-6">
+      {/* Hidden iOS 17.4+ / 18+ Taptic Engine Switch element */}
+      <label
+        id="worldia-ios-haptic-label"
+        className="sr-only pointer-events-none opacity-0 fixed -top-96 -left-96"
+        aria-hidden="true"
+      >
+        <input
+          type="checkbox"
+          ref={(el) => {
+            if (el) el.setAttribute('switch', '');
+          }}
+        />
+      </label>
+
       {!currentItem ? (
         <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-6 text-center space-y-4">
           <div className="flex justify-end">
@@ -349,6 +368,7 @@ export default function QuizTrainingView({
           tabIndex={0}
           onClick={() => {
             if (!isRevealed) {
+              triggerSavedHaptic();
               setIsRevealed(true);
             } else {
               handleFlashcardKeepInRotation();
@@ -923,6 +943,14 @@ export default function QuizTrainingView({
                   <span>マイ歴史都市へ</span>
                 </button>
               </div>
+
+              <button
+                onClick={() => onNavigate('haptics')}
+                className="w-full py-2.5 rounded-xl bg-purple-950/50 hover:bg-purple-900/50 border border-purple-500/40 text-purple-200 font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Vibrate className="w-4 h-4 text-purple-400" />
+                <span>スマホ振動（ハプティクス）実験ラボを開く</span>
+              </button>
 
               <button
                 onClick={() => onNavigate('home')}

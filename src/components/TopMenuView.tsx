@@ -19,6 +19,7 @@ import {
   Layers,
   ListChecks,
   Flame,
+  Vibrate,
 } from 'lucide-react';
 
 interface TopMenuViewProps {
@@ -28,7 +29,7 @@ interface TopMenuViewProps {
   reviewQaCount: number;
   totalQaCount: number;
   termsById: Map<number, EnrichedTerm>;
-  onSelectView: (view: 'db' | 'quiz' | 'city', initialQuizMode?: 'flashcard' | 'multiple_choice') => void;
+  onSelectView: (view: 'db' | 'quiz' | 'city' | 'haptics', initialQuizMode?: 'flashcard' | 'multiple_choice') => void;
 }
 
 export default function TopMenuView({
@@ -253,6 +254,17 @@ export default function TopMenuView({
             </div>
             <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-amber-300 group-hover:translate-x-0.5 transition shrink-0" />
           </button>
+
+          {/* 4. HAPTICS LAB (スマホ振動実験ラボ) */}
+          <div className="pt-2 flex justify-center">
+            <button
+              onClick={() => onSelectView('haptics')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-slate-400 hover:text-purple-300 text-xs font-bold transition cursor-pointer"
+            >
+              <Vibrate className="w-3.5 h-3.5 text-purple-400" />
+              <span>スマホ振動（ハプティクス）実験ラボを開く</span>
+            </button>
+          </div>
         </div>
       </main>
     </div>

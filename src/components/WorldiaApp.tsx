@@ -12,6 +12,7 @@ import TopMenuView from './TopMenuView';
 import WorldHistoryDBView from './WorldHistoryDBView';
 import QuizTrainingView, { QuizMode } from './QuizTrainingView';
 import IsometricCityView from './IsometricCityView';
+import HapticsLabView from './HapticsLabView';
 
 interface WorldiaAppProps {
   chapters: Chapter[];
@@ -24,7 +25,7 @@ export default function WorldiaApp({
   terms,
   qaItems,
 }: WorldiaAppProps) {
-  const [activeTab, setActiveTab] = useState<'home' | 'db' | 'quiz' | 'city'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'db' | 'quiz' | 'city' | 'haptics'>('home');
   const [initialQuizMode, setInitialQuizMode] = useState<QuizMode>('flashcard');
   const [selectedTermId, setSelectedTermId] = useState<number>(12);
   const [saveState, setSaveState] = useState<CitySaveState>(DEFAULT_SAVE_STATE);
@@ -171,6 +172,10 @@ export default function WorldiaApp({
         }}
       />
     );
+  }
+
+  if (activeTab === 'haptics') {
+    return <HapticsLabView onBack={() => setActiveTab('home')} />;
   }
 
   return (
