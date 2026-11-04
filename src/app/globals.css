@@ -136,3 +136,22 @@ body {
 .wave-svg-reverse {
   animation: waveDriftReverse 15s ease-in-out infinite;
 }
+
+@keyframes shuffleTapPop {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  35% {
+    transform: scale(1.32) rotate(-18deg);
+  }
+  70% {
+    transform: scale(0.92) rotate(195deg);
+  }
+  100% {
+    transform: scale(1) rotate(180deg);
+  }
+}
+
+.animate-shuffle-tap {
+  animation: shuffleTapPop 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}

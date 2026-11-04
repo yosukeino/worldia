@@ -24,10 +24,12 @@ import {
   Compass,
   EyeOff,
   Vibrate,
+  Shuffle,
 } from 'lucide-react';
 
 export type QuizMode = 'flashcard' | 'multiple_choice';
 type StatusFilter = 'unmastered' | 'review' | 'mastered' | 'all';
+type ShuffleMode = 'sequential' | 'chapter' | 'all';
 
 interface QuizTrainingViewProps {
   qaItems: QAItem[];
@@ -71,7 +73,8 @@ export default function QuizTrainingView({
   const [selectedChapter, setSelectedChapter] = useState<string>('ALL');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('unmastered');
-  const [isRandomOrder, setIsRandomOrder] = useState<boolean>(false);
+  const [shuffleMode, setShuffleMode] = useState<ShuffleMode>('sequential');
+  const [shuffleAnimKey, setShuffleAnimKey] = useState<number>(0);
 
   // Video-game style Pause / Menu overlay
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
@@ -124,32 +127,88 @@ export default function QuizTrainingView({
     return list;
   }, [qaItems, selectedChapter]);
 
-  // Rebuild deck when filter settings change
+  // Rebuild deck when filter settings or shuffle mode change
   const rebuildDeck = useCallback(() => {
-    let filtered = qaItems.filter((item) => {
-      if (selectedChapter !== 'ALL' && item.chapter !== selectedChapter) return false;
-      if (selectedSection !== 'ALL' && item.section !== selectedSection) return false;
+    const activeChapterHint = deck[currentIndex]?.chapter;
+
+    const matchesStatus = (item: QAItem) => {
       if (statusFilter === 'unmastered' && masteredQaIds.has(item.id)) return false;
       if (statusFilter === 'review' && !reviewQaIds.has(item.id)) return false;
       if (statusFilter === 'mastered' && !masteredQaIds.has(item.id)) return false;
       return true;
-    });
+    };
 
-    if (isRandomOrder) {
-      filtered = shuffleArray(filtered);
+    let nextDeck: QAItem[] = [];
+
+    if (shuffleMode === 'all') {
+      // 全時代（全問）からのシャッフル: 章フィルターに関わらず全時代からシャッフル出題
+      nextDeck = shuffleArray(qaItems.filter(matchesStatus));
+    } else if (shuffleMode === 'chapter') {
+      // 章単位でのシャッフル: 各章の中で問題をシャッフル（現在表示中の章を先頭に配置）
+      const filtered = qaItems.filter((item) => {
+        if (selectedChapter !== 'ALL' && item.chapter !== selectedChapter) return false;
+        if (selectedSection !== 'ALL' && item.section !== selectedSection) return false;
+        return matchesStatus(item);
+      });
+
+      if (selectedChapter !== 'ALL') {
+        nextDeck = shuffleArray(filtered);
+      } else {
+        const byChapter = new Map<string, QAItem[]>();
+        for (const ch of chapters) {
+          byChapter.set(ch, []);
+        }
+        for (const item of filtered) {
+          const list = byChapter.get(item.chapter) || [];
+          list.push(item);
+          byChapter.set(item.chapter, list);
+        }
+
+        const startIdx = activeChapterHint ? Math.max(0, chapters.indexOf(activeChapterHint)) : 0;
+        const orderedChapters = [
+          ...chapters.slice(startIdx),
+          ...chapters.slice(0, startIdx),
+        ];
+
+        for (const ch of orderedChapters) {
+          const group = byChapter.get(ch);
+          if (group && group.length > 0) {
+            nextDeck.push(...shuffleArray(group));
+          }
+        }
+      }
+    } else {
+      // 問題番号順（sequential）
+      nextDeck = qaItems.filter((item) => {
+        if (selectedChapter !== 'ALL' && item.chapter !== selectedChapter) return false;
+        if (selectedSection !== 'ALL' && item.section !== selectedSection) return false;
+        return matchesStatus(item);
+      });
     }
 
-    setDeck(filtered);
+    setDeck(nextDeck);
     setCurrentIndex(0);
     setIsRevealed(false);
     setSelectedChoice(null);
-  }, [qaItems, selectedChapter, selectedSection, statusFilter, isRandomOrder, masteredQaIds, reviewQaIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qaItems, chapters, selectedChapter, selectedSection, statusFilter, shuffleMode, masteredQaIds, reviewQaIds]);
 
-  // Only trigger full deck rebuild when filter controls change
+  // Trigger deck rebuild when filter controls or shuffleMode change
   useEffect(() => {
     rebuildDeck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChapter, selectedSection, statusFilter, isRandomOrder]);
+  }, [selectedChapter, selectedSection, statusFilter, shuffleMode]);
+
+  function cycleShuffleMode(e?: React.MouseEvent) {
+    if (e) e.stopPropagation();
+    triggerSavedHaptic();
+    setShuffleAnimKey((prev) => prev + 1);
+    setShuffleMode((prev) => {
+      if (prev === 'sequential') return 'chapter';
+      if (prev === 'chapter') return 'all';
+      return 'sequential';
+    });
+  }
 
   const currentItem: QAItem | undefined = deck[currentIndex];
 
@@ -467,19 +526,57 @@ export default function QuizTrainingView({
                   )}
                 </div>
 
-                {/* Unobtrusive Video-Game Menu / Pause Button */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsMenuOpen(true);
-                  }}
-                  className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
-                  title="遠征メニュー"
-                >
-                  <Menu className="w-4 h-4" />
-                  <span className="hidden sm:inline">メニュー</span>
-                </button>
+                <div className="shrink-0 flex items-center gap-1.5">
+                  {/* Shuffle Button on Flashcard Question Page: cycles sequential -> chapter -> all */}
+                  {!isRevealed && (
+                    <button
+                      type="button"
+                      onClick={cycleShuffleMode}
+                      className={`inline-flex items-center justify-center px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer ${
+                        shuffleMode === 'sequential'
+                          ? 'bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-slate-400 hover:text-slate-200'
+                          : shuffleMode === 'chapter'
+                          ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/60 text-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.28)]'
+                          : 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-400/60 text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.32)]'
+                      }`}
+                      title={
+                        shuffleMode === 'sequential'
+                          ? '出題順：問題番号順（タップで「章単位シャッフル」へ）'
+                          : shuffleMode === 'chapter'
+                          ? '出題順：章単位でのシャッフル（タップで「全時代シャッフル」へ）'
+                          : '出題順：全時代（全問）からのシャッフル（タップで「問題番号順」へ）'
+                      }
+                      aria-label={
+                        shuffleMode === 'sequential'
+                          ? '問題番号順'
+                          : shuffleMode === 'chapter'
+                          ? '章単位でのシャッフル'
+                          : '全時代からのシャッフル'
+                      }
+                    >
+                      <span
+                        key={shuffleAnimKey}
+                        className={shuffleAnimKey > 0 ? 'animate-shuffle-tap inline-flex' : 'inline-flex'}
+                      >
+                        <Shuffle className="w-4 h-4" />
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Unobtrusive Video-Game Menu / Pause Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                    title="遠征メニュー"
+                  >
+                    <Menu className="w-4 h-4" />
+                    <span className="hidden sm:inline">メニュー</span>
+                  </button>
+                </div>
               </div>
 
               {/* STATE 1: BEFORE TAP -> QUESTION VIEW */}
@@ -873,15 +970,23 @@ export default function QuizTrainingView({
                 </select>
 
                 <button
-                  onClick={() => setIsRandomOrder((prev) => !prev)}
+                  onClick={cycleShuffleMode}
                   className={`px-3 py-2 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                    isRandomOrder
-                      ? 'bg-purple-500/20 border-purple-400/50 text-purple-200'
-                      : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'
+                    shuffleMode === 'sequential'
+                      ? 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'
+                      : shuffleMode === 'chapter'
+                      ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-200'
+                      : 'bg-amber-500/20 border-amber-400/60 text-amber-200'
                   }`}
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>{isRandomOrder ? 'シャッフル順' : '教科書順'}</span>
+                  <Shuffle className="w-3.5 h-3.5" />
+                  <span>
+                    {shuffleMode === 'sequential'
+                      ? '問題番号順'
+                      : shuffleMode === 'chapter'
+                      ? '章単位シャッフル'
+                      : '全時代シャッフル'}
+                  </span>
                 </button>
               </div>
 
