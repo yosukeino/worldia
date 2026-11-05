@@ -532,7 +532,7 @@ export default function QuizTrainingView({
                     <button
                       type="button"
                       onClick={cycleShuffleMode}
-                      className={`inline-flex items-center justify-center px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer ${
                         shuffleMode === 'sequential'
                           ? 'bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-slate-400 hover:text-slate-200'
                           : shuffleMode === 'chapter'
@@ -560,6 +560,12 @@ export default function QuizTrainingView({
                       >
                         <Shuffle className="w-4 h-4" />
                       </span>
+                      {shuffleMode === 'chapter' && (
+                        <span className="text-[11px] font-extrabold tracking-tight">章単位</span>
+                      )}
+                      {shuffleMode === 'all' && (
+                        <span className="text-[11px] font-extrabold tracking-tight">全時代</span>
+                      )}
                     </button>
                   )}
 
