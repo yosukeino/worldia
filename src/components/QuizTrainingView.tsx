@@ -64,6 +64,142 @@ function shuffleArray<T>(arr: T[]): T[] {
   return copy;
 }
 
+/**
+ * 20問連続正解まで10段階（2問ごとに1段階アップ）で色・サイズ・輝きアニメーションが進化する連続正解バッジ
+ * - 数字そのものを独立した大きめオブジェクトとして表示
+ * - 6段階目（11連続正解〜）からはテキスト自体がキラキラ輝くシマー＆スパークルアニメーション付き
+ */
+function renderStreakBadge(streak: number) {
+  const tier = Math.min(10, Math.max(1, Math.ceil(streak / 2)));
+
+  const tierStyles: Record<
+    number,
+    {
+      badge: string;
+      iconColor: string;
+      numClass: string;
+      labelClass: string;
+      hasSparkles: boolean;
+    }
+  > = {
+    // 1段階目 (1〜2連続): エメラルドグリーン
+    1: {
+      badge: 'bg-emerald-500/10 border-emerald-500/30',
+      iconColor: 'text-emerald-400',
+      numClass: 'text-base sm:text-lg font-black text-emerald-300',
+      labelClass: 'text-emerald-300/90',
+      hasSparkles: false,
+    },
+    // 2段階目 (3〜4連続): シアンブルー
+    2: {
+      badge: 'bg-cyan-500/12 border-cyan-500/35',
+      iconColor: 'text-cyan-400',
+      numClass: 'text-base sm:text-lg font-black text-cyan-300',
+      labelClass: 'text-cyan-300/90',
+      hasSparkles: false,
+    },
+    // 3段階目 (5〜6連続): アンバーイエロー
+    3: {
+      badge: 'bg-amber-500/15 border-amber-500/40',
+      iconColor: 'text-amber-400',
+      numClass: 'text-base sm:text-lg font-black text-amber-300',
+      labelClass: 'text-amber-300',
+      hasSparkles: false,
+    },
+    // 4段階目 (7〜8連続): フレイムオレンジ
+    4: {
+      badge: 'bg-orange-500/15 border-orange-500/45 shadow-[0_0_8px_rgba(249,115,22,0.2)]',
+      iconColor: 'text-orange-400',
+      numClass:
+        'text-lg sm:text-xl font-black text-orange-300 drop-shadow-[0_0_5px_rgba(249,115,22,0.45)]',
+      labelClass: 'text-orange-300',
+      hasSparkles: false,
+    },
+    // 5段階目 (9〜10連続): クリムゾンローズ
+    5: {
+      badge: 'bg-rose-500/20 border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.28)]',
+      iconColor: 'text-rose-400',
+      numClass:
+        'text-lg sm:text-xl font-black text-rose-300 drop-shadow-[0_0_7px_rgba(244,63,94,0.65)]',
+      labelClass: 'text-rose-200',
+      hasSparkles: false,
+    },
+    // 6段階目 (11〜12連続): ゴールデン・シマー（ここからキラキラアニメーション開始！）
+    6: {
+      badge: 'bg-yellow-500/15 border-yellow-400/60 shadow-[0_0_12px_rgba(250,204,21,0.3)]',
+      iconColor: 'text-yellow-300 animate-pulse',
+      numClass: 'text-lg sm:text-xl font-black streak-num-tier-6',
+      labelClass: 'text-yellow-200 streak-num-tier-6',
+      hasSparkles: true,
+    },
+    // 7段階目 (13〜14連続): アメジスト・ネオンシマー
+    7: {
+      badge: 'bg-fuchsia-500/15 border-fuchsia-400/65 shadow-[0_0_14px_rgba(232,121,249,0.35)]',
+      iconColor: 'text-fuchsia-300 animate-pulse',
+      numClass: 'text-xl sm:text-2xl font-black streak-num-tier-7',
+      labelClass: 'text-fuchsia-200 streak-num-tier-7',
+      hasSparkles: true,
+    },
+    // 8段階目 (15〜16連続): 蒼白スーパーノヴァ・プラズマ
+    8: {
+      badge: 'bg-cyan-500/20 border-cyan-300/75 shadow-[0_0_16px_rgba(56,189,248,0.42)]',
+      iconColor: 'text-cyan-200 animate-bounce',
+      numClass: 'text-xl sm:text-2xl font-black streak-num-tier-8',
+      labelClass: 'text-cyan-100 streak-num-tier-8',
+      hasSparkles: true,
+    },
+    // 9段階目 (17〜18連続): ソーラーフレア紅蓮黄金
+    9: {
+      badge:
+        'bg-gradient-to-r from-rose-500/25 to-amber-500/25 border-amber-300/80 shadow-[0_0_18px_rgba(251,191,36,0.5)]',
+      iconColor: 'text-amber-200 animate-bounce',
+      numClass: 'text-xl sm:text-2xl font-black streak-num-tier-9',
+      labelClass: 'text-amber-100 streak-num-tier-9',
+      hasSparkles: true,
+    },
+    // 10段階目 (19〜20+連続): 神話級レインボー・プリズムクラウン
+    10: {
+      badge:
+        'bg-gradient-to-r from-amber-500/25 via-fuchsia-500/25 to-cyan-500/25 border-amber-200/90 shadow-[0_0_22px_rgba(244,114,182,0.58)]',
+      iconColor: 'text-amber-200 animate-spin',
+      numClass: 'text-2xl sm:text-[26px] font-black streak-num-tier-10',
+      labelClass: 'text-white streak-num-tier-10',
+      hasSparkles: true,
+    },
+  };
+
+  const style = tierStyles[tier];
+
+  return (
+    <span
+      className={`inline-flex items-baseline gap-1 px-2.5 py-0.5 rounded-xl border transition-all duration-300 ${style.badge}`}
+      title={`連続正解 ${streak}問（ランク ${tier}/10）`}
+    >
+      <Flame className={`w-3.5 h-3.5 self-center shrink-0 ${style.iconColor}`} />
+
+      {/* 数字を独立した大きなオブジェクトとして表示 + 正解更新時に弾むアニメーション */}
+      <span
+        key={streak}
+        className={`animate-streak-pop leading-none tracking-tight tabular-nums px-0.5 ${style.numClass}`}
+      >
+        {streak}
+      </span>
+
+      <span className={`text-[11px] font-extrabold leading-none ${style.labelClass}`}>
+        連続
+      </span>
+
+      {/* 6段階目（11連続〜）以上でキラキラ輝くスパークルエフェクト */}
+      {style.hasSparkles && (
+        <Sparkles className="w-3.5 h-3.5 self-center text-yellow-200 animate-sparkle-twinkle shrink-0" />
+      )}
+      {tier >= 8 && (
+        <Sparkles className="w-3 h-3 self-center text-cyan-200 animate-sparkle-twinkle-delayed shrink-0" />
+      )}
+    </span>
+  );
+}
+
 export default function QuizTrainingView({
   qaItems,
   termsById,
@@ -772,12 +908,7 @@ export default function QuizTrainingView({
               <span className="text-amber-300 text-xs font-bold tabular-nums">
                 ★{Math.min(5, Math.max(1, Math.round((currentItem.frequency || 3) / 2)))}
               </span>
-              {streak > 0 && (
-                <span className="text-amber-400 text-xs font-bold inline-flex items-center gap-0.5">
-                  <Flame className="w-3.5 h-3.5" />
-                  {streak}連続
-                </span>
-              )}
+              {streak > 0 && renderStreakBadge(streak)}
             </div>
 
             <div className="shrink-0 flex items-center gap-1.5">
