@@ -100,6 +100,12 @@ export interface QAItem {
   frequency: number;
 }
 
+export interface CityPoints {
+  population: number;
+  culture: number;
+  tech: number;
+}
+
 export interface CitySaveState {
   cityName: string;
   readTermIds: number[];
@@ -108,6 +114,14 @@ export interface CitySaveState {
   masteredQaIds: number[];
   reviewQaIds: number[];
   qaAnswerViewCounts?: Record<number, number>;
+  /** ユーザーが手動で消費できる現在の所持ポイント（人口・文化・技術） */
+  points?: CityPoints;
+  /** これまでに獲得した累計ポイント */
+  totalEarnedPoints?: CityPoints;
+  /** 現在選択中の修復ステージID */
+  currentStageId?: number;
+  /** 完了済みの修復タスクID一覧 */
+  completedTaskIds?: string[];
   customBuildingPositions: Record<string, { x: number; y: number }>;
   chirperFeed: ChirperPost[];
   timeOfDay: 'day' | 'sunset' | 'night';

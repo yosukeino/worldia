@@ -32,6 +32,18 @@ export const DEFAULT_SAVE_STATE: CitySaveState = {
   masteredQaIds: [],
   reviewQaIds: [],
   qaAnswerViewCounts: {},
+  points: {
+    population: 40,
+    culture: 25,
+    tech: 25,
+  },
+  totalEarnedPoints: {
+    population: 40,
+    culture: 25,
+    tech: 25,
+  },
+  currentStageId: 1,
+  completedTaskIds: [],
   customBuildingPositions: {},
   chirperFeed: DEFAULT_CHIRPER,
   timeOfDay: 'day',
@@ -46,6 +58,10 @@ export function loadCityState(): CitySaveState {
     return {
       ...DEFAULT_SAVE_STATE,
       ...parsed,
+      points: parsed.points || DEFAULT_SAVE_STATE.points,
+      totalEarnedPoints: parsed.totalEarnedPoints || parsed.points || DEFAULT_SAVE_STATE.totalEarnedPoints,
+      currentStageId: parsed.currentStageId || 1,
+      completedTaskIds: parsed.completedTaskIds || [],
     };
   } catch {
     return DEFAULT_SAVE_STATE;

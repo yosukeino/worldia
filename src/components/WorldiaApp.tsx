@@ -1,17 +1,23 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Chapter, EnrichedTerm, QAItem, CitySaveState } from '@/types/history';
+import {
+  Chapter,
+  EnrichedTerm,
+  QAItem,
+  CitySaveState,
+  CityPoints,
+} from '@/types/history';
 import {
   DEFAULT_SAVE_STATE,
   loadCityState,
   saveCityState,
 } from '@/lib/storage';
-import CityStatusHeader from './CityStatusHeader';
+import { RestorationTask } from '@/config/restoration-stages';
 import TopMenuView from './TopMenuView';
 import WorldHistoryDBView from './WorldHistoryDBView';
 import QuizTrainingView, { QuizMode } from './QuizTrainingView';
-import IsometricCityView from './IsometricCityView';
+import MonumentRestorationView from './MonumentRestorationView';
 import HapticsLabView from './HapticsLabView';
 
 interface WorldiaAppProps {
@@ -25,7 +31,9 @@ export default function WorldiaApp({
   terms,
   qaItems,
 }: WorldiaAppProps) {
-  const [activeTab, setActiveTab] = useState<'home' | 'db' | 'quiz' | 'city' | 'haptics'>('home');
+  const [activeTab, setActiveTab] = useState<
+    'home' | 'db' | 'quiz' | 'city' | 'haptics'
+  >('home');
   const [initialQuizMode, setInitialQuizMode] = useState<QuizMode>('flashcard');
   const [selectedTermId, setSelectedTermId] = useState<number>(12);
   const [cameFromQuiz, setCameFromQuiz] = useState<boolean>(false);
@@ -44,7 +52,10 @@ export default function WorldiaApp({
   useEffect(() => {
     const loaded = loadCityState();
     setSaveState(loaded);
-    if (loaded.recentTermIds.length > 0 && termsById.has(loaded.recentTermIds[0])) {
+    if (
+      loaded.recentTermIds.length > 0 &&
+      termsById.has(loaded.recentTermIds[0])
+    ) {
       setSelectedTermId(loaded.recentTermIds[0]);
     }
     setHydrated(true);
@@ -75,6 +86,14 @@ export default function WorldiaApp({
     [saveState.reviewQaIds]
   );
 
+  const currentPoints: CityPoints = saveState.points || {
+    population: 40,
+    culture: 25,
+    tech: 25,
+  };
+
+  const totalEarnedPoints: CityPoints = saveState.totalEarnedPoints || currentPoints;
+
   function handleRevealAnswer(qaId: number) {
     setSaveState((prev) => {
       const prevCounts = prev.qaAnswerViewCounts || {};
@@ -92,7 +111,8 @@ export default function WorldiaApp({
   function handleRecordQuizResult(
     qaId: number,
     isCorrect: boolean,
-    matchedTermId: number | null
+    matchedTermId: number | null,
+    earnedPoints: CityPoints
   ) {
     setSaveState((prev) => {
       const prevMastered = prev.masteredQaIds || [];
@@ -107,21 +127,73 @@ export default function WorldiaApp({
       const nextReview = isCorrect
         ? prevReview.filter((id) => id !== qaId)
         : prevReview.includes(qaId)
-          ? prevReview
-          : [...prevReview, qaId];
+        ? prevReview
+        : [...prevReview, qaId];
 
       const nextRead =
-        isCorrect && matchedTermId !== null && !prev.readTermIds.includes(matchedTermId)
+        isCorrect &&
+        matchedTermId !== null &&
+        !prev.readTermIds.includes(matchedTermId)
           ? [...prev.readTermIds, matchedTermId]
           : prev.readTermIds;
+
+      const prevPoints = prev.points || { population: 40, culture: 25, tech: 25 };
+      const prevTotal = prev.totalEarnedPoints || prevPoints;
+
+      const nextPoints: CityPoints = {
+        population: prevPoints.population + earnedPoints.population,
+        culture: prevPoints.culture + earnedPoints.culture,
+        tech: prevPoints.tech + earnedPoints.tech,
+      };
+
+      const nextTotal: CityPoints = {
+        population: prevTotal.population + earnedPoints.population,
+        culture: prevTotal.culture + earnedPoints.culture,
+        tech: prevTotal.tech + earnedPoints.tech,
+      };
 
       return {
         ...prev,
         masteredQaIds: nextMastered,
         reviewQaIds: nextReview,
         readTermIds: nextRead,
+        points: nextPoints,
+        totalEarnedPoints: nextTotal,
       };
     });
+  }
+
+  function handleCompleteRestorationTask(task: RestorationTask) {
+    setSaveState((prev) => {
+      const prevCompleted = prev.completedTaskIds || [];
+      if (prevCompleted.includes(task.id)) return prev;
+
+      const prevPoints = prev.points || { population: 40, culture: 25, tech: 25 };
+      if (
+        prevPoints.population < task.cost.population ||
+        prevPoints.culture < task.cost.culture ||
+        prevPoints.tech < task.cost.tech
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        points: {
+          population: prevPoints.population - task.cost.population,
+          culture: prevPoints.culture - task.cost.culture,
+          tech: prevPoints.tech - task.cost.tech,
+        },
+        completedTaskIds: [...prevCompleted, task.id],
+      };
+    });
+  }
+
+  function handleSelectStage(stageId: number) {
+    setSaveState((prev) => ({
+      ...prev,
+      currentStageId: stageId,
+    }));
   }
 
   function handleSelectTerm(termId: number) {
@@ -161,16 +233,6 @@ export default function WorldiaApp({
     });
   }
 
-  function handleUpdateBuildingPosition(buildingId: string, x: number, y: number) {
-    setSaveState((prev) => ({
-      ...prev,
-      customBuildingPositions: {
-        ...prev.customBuildingPositions,
-        [buildingId]: { x, y },
-      },
-    }));
-  }
-
   function handleJumpToTermFromQuiz(termId: number) {
     setCameFromQuiz(true);
     handleSelectTerm(termId);
@@ -195,7 +257,9 @@ export default function WorldiaApp({
         masteredQaCount={masteredQaIdsSet.size}
         reviewQaCount={reviewQaIdsSet.size}
         totalQaCount={qaItems.length}
-        termsById={termsById}
+        points={currentPoints}
+        currentStageId={saveState.currentStageId || 1}
+        completedTaskIds={saveState.completedTaskIds || []}
         onSelectView={(view, quizMode) => {
           if (quizMode) {
             setInitialQuizMode(quizMode);
@@ -215,20 +279,6 @@ export default function WorldiaApp({
 
   return (
     <div className="min-h-screen bg-[#070f1e] text-slate-100 flex flex-col">
-      {activeTab === 'city' && (
-        <CityStatusHeader
-          cityName={saveState.cityName}
-          activeTab={activeTab}
-          onChangeTab={(tab) => {
-            if (tab === 'db') setCameFromQuiz(false);
-            setActiveTab(tab);
-          }}
-          readTermIds={readTermIdsSet}
-          masteredQaCount={masteredQaIdsSet.size}
-          termsById={termsById}
-        />
-      )}
-
       <div className="max-w-7xl w-full mx-auto px-3 sm:px-4 py-3 sm:py-5 flex-1">
         {activeTab === 'db' && (
           <WorldHistoryDBView
@@ -257,6 +307,7 @@ export default function WorldiaApp({
             masteredQaIds={masteredQaIdsSet}
             reviewQaIds={reviewQaIdsSet}
             qaAnswerViewCounts={saveState.qaAnswerViewCounts || {}}
+            currentPoints={currentPoints}
             initialMode={initialQuizMode}
             advanceTrigger={advanceQuizTrigger}
             onRevealAnswer={handleRevealAnswer}
@@ -270,21 +321,18 @@ export default function WorldiaApp({
         </div>
 
         {activeTab === 'city' && (
-          <IsometricCityView
-            cityName={saveState.cityName}
-            onChangeCityName={(name) =>
-              setSaveState((prev) => ({ ...prev, cityName: name }))
-            }
-            readTermIds={readTermIdsSet}
-            termsById={termsById}
-            allTerms={terms}
-            customPositions={saveState.customBuildingPositions}
-            onUpdatePosition={handleUpdateBuildingPosition}
-            timeOfDay={saveState.timeOfDay}
-            onChangeTimeOfDay={(timeOfDay) =>
-              setSaveState((prev) => ({ ...prev, timeOfDay }))
-            }
-            onSelectTerm={(termId) => {
+          <MonumentRestorationView
+            points={currentPoints}
+            totalEarnedPoints={totalEarnedPoints}
+            currentStageId={saveState.currentStageId || 1}
+            completedTaskIds={saveState.completedTaskIds || []}
+            onCompleteTask={handleCompleteRestorationTask}
+            onSelectStage={handleSelectStage}
+            onNavigate={(view) => {
+              if (view === 'db') setCameFromQuiz(false);
+              setActiveTab(view);
+            }}
+            onJumpToTermInDB={(termId) => {
               setCameFromQuiz(false);
               handleSelectTerm(termId);
             }}

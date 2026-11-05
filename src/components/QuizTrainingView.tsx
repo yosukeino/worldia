@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { QAItem, EnrichedTerm } from '@/types/history';
+import { QAItem, EnrichedTerm, CityPoints } from '@/types/history';
+import { calculateQuestionReward } from '@/config/restoration-stages';
 import { triggerSavedHaptic } from '@/lib/haptics';
 import LinkedDescription from './LinkedDescription';
 import {
@@ -15,7 +16,6 @@ import {
   Flame,
   ArrowRight,
   Trophy,
-  RefreshCw,
   Menu,
   X,
   Home,
@@ -25,6 +25,9 @@ import {
   EyeOff,
   Vibrate,
   Shuffle,
+  Users,
+  Wrench,
+  Flag,
 } from 'lucide-react';
 
 export type QuizMode = 'flashcard' | 'multiple_choice';
@@ -38,10 +41,16 @@ interface QuizTrainingViewProps {
   masteredQaIds: Set<number>;
   reviewQaIds: Set<number>;
   qaAnswerViewCounts: Record<number, number>;
+  currentPoints: CityPoints;
   initialMode?: QuizMode;
   advanceTrigger?: number;
   onRevealAnswer: (qaId: number) => void;
-  onRecordResult: (qaId: number, isCorrect: boolean, matchedTermId: number | null) => void;
+  onRecordResult: (
+    qaId: number,
+    isCorrect: boolean,
+    matchedTermId: number | null,
+    earnedPoints: CityPoints
+  ) => void;
   onJumpToTermInDB: (termId: number) => void;
   onNavigate: (view: 'home' | 'db' | 'city' | 'haptics') => void;
 }
@@ -62,6 +71,7 @@ export default function QuizTrainingView({
   masteredQaIds,
   reviewQaIds,
   qaAnswerViewCounts,
+  currentPoints,
   initialMode = 'flashcard',
   advanceTrigger = 0,
   onRevealAnswer,
@@ -76,8 +86,10 @@ export default function QuizTrainingView({
   const [shuffleMode, setShuffleMode] = useState<ShuffleMode>('sequential');
   const [shuffleAnimKey, setShuffleAnimKey] = useState<number>(0);
 
-  // Video-game style Pause / Menu overlay
+  // Video-game style Pause / Menu overlay & Result Screen Modal
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [isResultModalOpen, setIsResultModalOpen] = useState<boolean>(false);
+  const [pendingDestination, setPendingDestination] = useState<'home' | 'city' | 'db' | null>(null);
 
   // Sync initialMode when launched from Top Menu
   useEffect(() => {
@@ -95,10 +107,16 @@ export default function QuizTrainingView({
   const [choices, setChoices] = useState<string[]>([]);
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
 
-  // Session counters
+  // Session counters & session earned points
   const [sessionCorrect, setSessionCorrect] = useState<number>(0);
   const [sessionTotal, setSessionTotal] = useState<number>(0);
   const [streak, setStreak] = useState<number>(0);
+  const [sessionEarned, setSessionEarned] = useState<CityPoints>({
+    population: 0,
+    culture: 0,
+    tech: 0,
+  });
+  const [lastReward, setLastReward] = useState<CityPoints | null>(null);
 
   // Unique chapters in order of appearance
   const chapters = useMemo(() => {
@@ -272,12 +290,48 @@ export default function QuizTrainingView({
     }
   }
 
+  function recordQuestionCompletion(item: QAItem, isBonus: boolean) {
+    const reward = calculateQuestionReward(item, isBonus);
+    setSessionTotal((prev) => prev + 1);
+    if (isBonus) {
+      setSessionCorrect((prev) => prev + 1);
+      setStreak((prev) => prev + 1);
+    } else {
+      setStreak(0);
+    }
+    setSessionEarned((prev) => ({
+      population: prev.population + reward.population,
+      culture: prev.culture + reward.culture,
+      tech: prev.tech + reward.tech,
+    }));
+    setLastReward(reward);
+    onRecordResult(item.id, isBonus, item.matched_term_id, reward);
+  }
+
+  function handleOpenResultScreen(dest: 'home' | 'city' | 'db' | null = null) {
+    triggerSavedHaptic();
+    setIsMenuOpen(false);
+    setPendingDestination(dest);
+    setIsResultModalOpen(true);
+  }
+
+  function handleFinishSessionAndNavigate(dest: 'home' | 'city' | 'db') {
+    triggerSavedHaptic();
+    setIsResultModalOpen(false);
+    setIsMenuOpen(false);
+    setSessionTotal(0);
+    setSessionCorrect(0);
+    setStreak(0);
+    setSessionEarned({ population: 0, culture: 0, tech: 0 });
+    setLastReward(null);
+    onNavigate(dest);
+  }
+
   // Advance to the next question when returning from World History DB via "問題に戻る"
   useEffect(() => {
     if (advanceTrigger > 0) {
       if (mode === 'flashcard' && currentItem) {
-        setSessionTotal((prev) => prev + 1);
-        onRecordResult(currentItem.id, false, currentItem.matched_term_id);
+        recordQuestionCompletion(currentItem, false);
       }
       advanceToNextCard();
     }
@@ -288,9 +342,7 @@ export default function QuizTrainingView({
   function handleFlashcardKeepInRotation() {
     if (!currentItem) return;
     triggerSavedHaptic();
-    setSessionTotal((prev) => prev + 1);
-    setStreak(0);
-    onRecordResult(currentItem.id, false, currentItem.matched_term_id);
+    recordQuestionCompletion(currentItem, false);
     advanceToNextCard();
   }
 
@@ -300,10 +352,7 @@ export default function QuizTrainingView({
     if (!currentItem) return;
     triggerSavedHaptic();
     const targetId = currentItem.id;
-    setSessionTotal((prev) => prev + 1);
-    setSessionCorrect((prev) => prev + 1);
-    setStreak((prev) => prev + 1);
-    onRecordResult(targetId, true, currentItem.matched_term_id);
+    recordQuestionCompletion(currentItem, true);
 
     setIsRevealed(false);
     setSelectedChoice(null);
@@ -326,14 +375,7 @@ export default function QuizTrainingView({
     triggerSavedHaptic();
     setSelectedChoice(choice);
     const isCorrect = choice === currentItem.answer;
-    setSessionTotal((prev) => prev + 1);
-    if (isCorrect) {
-      setSessionCorrect((prev) => prev + 1);
-      setStreak((prev) => prev + 1);
-    } else {
-      setStreak(0);
-    }
-    onRecordResult(currentItem.id, isCorrect, currentItem.matched_term_id);
+    recordQuestionCompletion(currentItem, isCorrect);
   }
 
   function handlePrevQuestion(e?: React.MouseEvent) {
@@ -569,6 +611,22 @@ export default function QuizTrainingView({
                     </button>
                   )}
 
+                  {/* Finish Session & View Result Button (shown once at least 1 question is answered) */}
+                  {sessionTotal > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenResultScreen(null);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 text-xs font-extrabold transition cursor-pointer"
+                      title="演習を終了して獲得ポイントのリザルトを見る"
+                    >
+                      <Flag className="w-3.5 h-3.5" />
+                      <span>終了・結果</span>
+                    </button>
+                  )}
+
                   {/* Unobtrusive Video-Game Menu / Pause Button */}
                   <button
                     type="button"
@@ -763,6 +821,18 @@ export default function QuizTrainingView({
                 )}
               </button>
 
+              {sessionTotal > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenResultScreen(null)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 text-xs font-extrabold transition cursor-pointer"
+                  title="演習を終了して獲得ポイントのリザルトを見る"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>終了・結果</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setIsMenuOpen(true)}
@@ -826,16 +896,16 @@ export default function QuizTrainingView({
 
             {selectedChoice !== null && (
               <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1">
                   {selectedChoice === currentItem.answer ? (
                     <span className="text-emerald-400 font-extrabold text-sm flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4" />
-                      正解！（人口+200 / 文化+8）
+                      正解！（人口+{lastReward?.population || 25} / 文化+{lastReward?.culture || 20} / 技術+{lastReward?.tech || 20}）
                     </span>
                   ) : (
                     <span className="text-rose-400 font-extrabold text-sm flex items-center gap-1.5">
                       <XCircle className="w-4 h-4" />
-                      不正解… 正解は「{currentItem.answer}」
+                      不正解… 正解は「{currentItem.answer}」（学習Pt: 人口+{lastReward?.population || 10} / 文化+{lastReward?.culture || 8} / 技術+{lastReward?.tech || 8}）
                     </span>
                   )}
                 </div>
@@ -904,30 +974,32 @@ export default function QuizTrainingView({
               </button>
             </div>
 
-            {/* Session Status Summary */}
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="bg-slate-950 rounded-xl p-2.5 border border-slate-800">
-                <div className="text-slate-400 text-[11px] flex items-center justify-center gap-1">
-                  <Trophy className="w-3 h-3 text-emerald-400" />
-                  <span>開拓済</span>
-                </div>
-                <div className="font-extrabold text-emerald-300 mt-0.5 tabular-nums">
-                  {masteredQaIds.size.toLocaleString()} / {qaItems.length.toLocaleString()}
-                </div>
+            {/* Session Earned Points Mini Summary */}
+            <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400 font-bold">今回の遠征で獲得中（{sessionTotal}問演習）</span>
+                {sessionTotal > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenResultScreen(null)}
+                    className="text-emerald-400 hover:text-emerald-300 font-extrabold underline cursor-pointer"
+                  >
+                    リザルト画面を開く →
+                  </button>
+                )}
               </div>
-              <div className="bg-slate-950 rounded-xl p-2.5 border border-slate-800">
-                <div className="text-slate-400 text-[11px] flex items-center justify-center gap-1">
-                  <Flame className="w-3 h-3 text-amber-400" />
-                  <span>要復習</span>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="bg-slate-900 rounded-lg p-2 border border-cyan-500/20">
+                  <div className="text-[10px] text-slate-400">人口</div>
+                  <div className="font-black text-cyan-300 tabular-nums">+{sessionEarned.population}</div>
                 </div>
-                <div className="font-extrabold text-rose-300 mt-0.5 tabular-nums">
-                  {reviewQaIds.size.toLocaleString()}問
+                <div className="bg-slate-900 rounded-lg p-2 border border-amber-500/20">
+                  <div className="text-[10px] text-slate-400">文化</div>
+                  <div className="font-black text-amber-300 tabular-nums">+{sessionEarned.culture}</div>
                 </div>
-              </div>
-              <div className="bg-slate-950 rounded-xl p-2.5 border border-slate-800">
-                <div className="text-slate-400 text-[11px]">今回の演習</div>
-                <div className="font-extrabold text-cyan-300 mt-0.5 tabular-nums">
-                  {sessionTotal}問
+                <div className="bg-slate-900 rounded-lg p-2 border border-purple-500/20">
+                  <div className="text-[10px] text-slate-400">技術</div>
+                  <div className="font-black text-purple-300 tabular-nums">+{sessionEarned.tech}</div>
                 </div>
               </div>
             </div>
@@ -1050,7 +1122,7 @@ export default function QuizTrainingView({
               </button>
             </div>
 
-            {/* Game Menu Actions (Resume / Navigate) */}
+            {/* Game Menu Actions (Resume / Result / Navigate) */}
             <div className="space-y-2 pt-1">
               <button
                 onClick={() => setIsMenuOpen(false)}
@@ -1060,9 +1132,25 @@ export default function QuizTrainingView({
                 <span>遠征を再開する</span>
               </button>
 
+              {sessionTotal > 0 && (
+                <button
+                  onClick={() => handleOpenResultScreen('city')}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Flag className="w-4 h-4" />
+                  <span>遠征を終了して獲得ポイント結果を見る</span>
+                </button>
+              )}
+
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => onNavigate('db')}
+                  onClick={() => {
+                    if (sessionTotal > 0) {
+                      handleOpenResultScreen('db');
+                    } else {
+                      onNavigate('db');
+                    }
+                  }}
                   className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
@@ -1070,11 +1158,17 @@ export default function QuizTrainingView({
                 </button>
 
                 <button
-                  onClick={() => onNavigate('city')}
+                  onClick={() => {
+                    if (sessionTotal > 0) {
+                      handleOpenResultScreen('city');
+                    } else {
+                      onNavigate('city');
+                    }
+                  }}
                   className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Building2 className="w-3.5 h-3.5" />
-                  <span>マイ歴史都市へ</span>
+                  <span>マイ育成都市へ</span>
                 </button>
               </div>
 
@@ -1087,12 +1181,147 @@ export default function QuizTrainingView({
               </button>
 
               <button
-                onClick={() => onNavigate('home')}
+                onClick={() => {
+                  if (sessionTotal > 0) {
+                    handleOpenResultScreen('home');
+                  } else {
+                    onNavigate('home');
+                  }
+                }}
                 className="w-full py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Home className="w-4 h-4 text-slate-400" />
                 <span>トップメニューに戻る</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EXPEDITION RESULT SCREEN MODAL (今回獲得したポイント小計 & 累積所持ポイント) */}
+      {isResultModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-emerald-400/50 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-center space-y-1.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-extrabold tracking-widest uppercase">
+                <Trophy className="w-3.5 h-3.5" />
+                <span>EXPEDITION RESULT</span>
+              </div>
+              <h2 className="text-2xl font-black text-white">
+                遠征リザルト（獲得ポイント集計）
+              </h2>
+              <p className="text-xs text-slate-400">
+                今回の演習問題数: <span className="text-white font-extrabold">{sessionTotal}問</span>
+              </p>
+            </div>
+
+            {/* 3 Points Breakdown: Subtotal Earned & Cumulative Wallet Total */}
+            <div className="space-y-2.5">
+              {/* 1. 人口ポイント */}
+              <div className="bg-slate-950/90 border border-cyan-500/35 rounded-2xl p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/35 flex items-center justify-center text-cyan-400">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-extrabold text-slate-300">人口ポイント</div>
+                    <div className="text-[11px] text-slate-400">
+                      累積所持: <span className="text-white font-black tabular-nums">{currentPoints.population.toLocaleString()} pt</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-bold text-cyan-400">今回の獲得小計</div>
+                  <div className="text-xl font-black text-cyan-300 tabular-nums">
+                    +{sessionEarned.population.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. 文化ポイント */}
+              <div className="bg-slate-950/90 border border-amber-500/35 rounded-2xl p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/35 flex items-center justify-center text-amber-400">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-extrabold text-slate-300">文化ポイント</div>
+                    <div className="text-[11px] text-slate-400">
+                      累積所持: <span className="text-white font-black tabular-nums">{currentPoints.culture.toLocaleString()} pt</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-bold text-amber-400">今回の獲得小計</div>
+                  <div className="text-xl font-black text-amber-300 tabular-nums">
+                    +{sessionEarned.culture.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. 技術ポイント */}
+              <div className="bg-slate-950/90 border border-purple-500/35 rounded-2xl p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/35 flex items-center justify-center text-purple-400">
+                    <Wrench className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-extrabold text-slate-300">技術ポイント</div>
+                    <div className="text-[11px] text-slate-400">
+                      累積所持: <span className="text-white font-black tabular-nums">{currentPoints.tech.toLocaleString()} pt</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-bold text-purple-400">今回の獲得小計</div>
+                  <div className="text-xl font-black text-purple-300 tabular-nums">
+                    +{sessionEarned.tech.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => handleFinishSessionAndNavigate('city')}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-sm shadow-xl transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>マイ育成都市で遺跡を修復する →</span>
+              </button>
+
+              {pendingDestination === 'db' && (
+                <button
+                  type="button"
+                  onClick={() => handleFinishSessionAndNavigate('db')}
+                  className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>世界史DBへ移動する</span>
+                </button>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsResultModalOpen(false)}
+                  className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>演習を続ける</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleFinishSessionAndNavigate('home')}
+                  className="py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>トップメニューへ</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
