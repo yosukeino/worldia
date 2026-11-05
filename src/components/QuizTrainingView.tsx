@@ -722,14 +722,56 @@ export default function QuizTrainingView({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsMenuOpen(true)}
-              className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
-            >
-              <Menu className="w-4 h-4" />
-              <span className="hidden sm:inline">メニュー</span>
-            </button>
+            <div className="shrink-0 flex items-center gap-1.5">
+              {/* Shuffle Button for 4-Choice Quiz: cycles sequential -> chapter -> all */}
+              <button
+                type="button"
+                onClick={cycleShuffleMode}
+                className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  shuffleMode === 'sequential'
+                    ? 'bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-slate-400 hover:text-slate-200'
+                    : shuffleMode === 'chapter'
+                    ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/60 text-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.28)]'
+                    : 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-400/60 text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.32)]'
+                }`}
+                title={
+                  shuffleMode === 'sequential'
+                    ? '出題順：問題番号順（タップで「章単位シャッフル」へ）'
+                    : shuffleMode === 'chapter'
+                    ? '出題順：章単位でのシャッフル（タップで「全時代シャッフル」へ）'
+                    : '出題順：全時代（全問）からのシャッフル（タップで「問題番号順」へ）'
+                }
+                aria-label={
+                  shuffleMode === 'sequential'
+                    ? '問題番号順'
+                    : shuffleMode === 'chapter'
+                    ? '章単位でのシャッフル'
+                    : '全時代からのシャッフル'
+                }
+              >
+                <span
+                  key={`4choice-${shuffleAnimKey}`}
+                  className={shuffleAnimKey > 0 ? 'animate-shuffle-tap inline-flex' : 'inline-flex'}
+                >
+                  <Shuffle className="w-4 h-4" />
+                </span>
+                {shuffleMode === 'chapter' && (
+                  <span className="text-[11px] font-extrabold tracking-tight">章単位</span>
+                )}
+                {shuffleMode === 'all' && (
+                  <span className="text-[11px] font-extrabold tracking-tight">全時代</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+              >
+                <Menu className="w-4 h-4" />
+                <span className="hidden sm:inline">メニュー</span>
+              </button>
+            </div>
           </div>
 
           <div className="py-1 sm:py-3">
